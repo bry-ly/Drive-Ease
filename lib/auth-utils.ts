@@ -1,0 +1,59 @@
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { PrismaClient } from "@prisma/client";
+
+const basePrisma = prisma as unknown as PrismaClient;
+
+export async function getCurrentUser() {
+  try {
+    const headersList = await headers();
+    const session = await auth.api.getSession({
+      headers: headersList,
+    });
+
+    if (!session?.user) {
+      return null;
+    }
+
+    const userId = session.user.id as string;
+    const user = await basePrisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        image: true,
+      },
+    });
+
+    return user;
+  } catch (error) {
+    console.error("Error getting current user:", error);
+    return null;
+  }
+}
+
+export async function requireAuth() {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+  return user;
+}
+
+export async function requireAdmin() {
+  const user = await requireAuth();
+  if (user.role !== "admin") {
+    redirect("/");
+  }
+  return user;
+}
+
+export async function isAdmin() {
+  const user = await getCurrentUser();
+  return user?.role === "admin";
+}
+

@@ -1,0 +1,163 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  user
+  admin
+}
+
+model User {
+  id            String     @id
+  name          String
+  email         String
+  emailVerified Boolean    @default(false)
+  image         String?
+  role          Role       @default(user)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @default(now()) @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  bookings      Booking[]
+  favorites     Favorite[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
+}
+
+model Car {
+  id             String    @id @default(uuid())
+  cityMpg        Int        @map("city_mpg")
+  class          String
+  combinationMpg Int        @map("combination_mpg")
+  cylinders      Int
+  displacement   Float
+  drive          String
+  fuelType       String     @map("fuel_type")
+  highwayMpg     Int        @map("highway_mpg")
+  make           String
+  model          String
+  transmission   String
+  year           Int
+  pricePerDay    Float      @default(50.0) @map("price_per_day")
+  available      Boolean    @default(true)
+  description    String?    @db.Text
+  images         Json?      @default("[]")
+  location       String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  bookings       Booking[]
+  favorites      Favorite[]
+
+  @@index([make, model])
+  @@index([year])
+  @@index([class])
+  @@index([available])
+  @@index([pricePerDay])
+  @@map("car")
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  completed
+  cancelled
+}
+
+model Booking {
+  id                String        @id @default(uuid())
+  userId            String        @map("user_id")
+  carId             String        @map("car_id")
+  startDate         DateTime      @map("start_date")
+  endDate           DateTime      @map("end_date")
+  totalPrice        Float         @map("total_price")
+  status            BookingStatus @default(pending)
+  pickupLocation    String?       @map("pickup_location")
+  dropoffLocation   String?       @map("dropoff_location")
+  phoneNumber       String?       @map("phone_number")
+  driversLicense    String?       @map("drivers_license")
+  emergencyContact  String?       @map("emergency_contact")
+  emergencyPhone    String?       @map("emergency_phone")
+  specialRequests   String?       @db.Text @map("special_requests")
+  metadata          Json?         // Stores additional booking information
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  car               Car           @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([carId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("booking")
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  carId     String   @map("car_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  car       Car      @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, carId])
+  @@index([userId])
+  @@index([carId])
+  @@map("favorite")
+}
